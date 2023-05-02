@@ -33,7 +33,7 @@ int main() {
         fprintf(stderr, "pthread_attr_destroy error:%s\n", strerror(ret));
         exit(1);
     }
-    sleep(1);  // return 后销毁共用的内存
+    // sleep(1);  // return 后销毁共用的内存
     ret = pthread_join(tid,NULL);
     if (ret != 0) {
         fprintf(stderr, "pthread_join error:%s\n", strerror(ret));
