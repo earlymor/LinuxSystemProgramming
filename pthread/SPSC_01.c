@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
+// #include <time.h>
 // Single-Producer, Single-Consumer Queue
 typedef struct {
     void** buffer;          // 数据缓冲区
@@ -37,10 +37,10 @@ void SPSCQueuePush(SPSCQueue* queue, void* s) {
     queue->rear++;
     queue->rear %= queue->capacity;
     queue->buffer[queue->rear] = s;
-    printf("--------producer:%d\n", *(int*)queue->buffer[queue->rear]);
+    printf("--------producer:%d rear:%d\n", *(int*)queue->buffer[queue->rear],queue->rear);
     pthread_mutex_unlock(&queue->mutex);
     sem_post(&queue->full);
-    sleep(rand() % 3);
+    // sleep(rand() % 2);
 }
 
 void* SPSCQueuePop(SPSCQueue* queue) {
@@ -48,11 +48,11 @@ void* SPSCQueuePop(SPSCQueue* queue) {
     pthread_mutex_lock(&queue->mutex);
     queue->front++;
     queue->front %= queue->capacity;
-    printf("-----------------------consumer:%d\n",*(int*) queue->buffer[queue->front]);
-    queue->buffer[queue->front] = NULL;
+    printf("-----------------------consumer:%d front:%d\n",*(int*) queue->buffer[queue->front],queue->front);
+    queue->buffer[queue->front] = 0;
     pthread_mutex_unlock(&queue->mutex);
     sem_post(&queue->empty);
-    sleep(rand() % 3);
+    // sleep(rand() % 3);
 
     return NULL;
 }
