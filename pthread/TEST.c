@@ -27,18 +27,23 @@ int main() {
         ret = pthread_create(&consumer_tid[i], NULL, consumer, queue);
         if(ret != 0 ){
             fprintf(stderr,"consumer pthread_create error %s",strerror(ret));
+            exit(1);
         }
     }
     for (int i = 0; i < 5; i++) {
         ret = pthread_create(&producer_tid[i], NULL, producer, queue);
         if(ret != 0 ){
             fprintf(stderr,"producer pthread_create error %s",strerror(ret));
+            exit(1);
+
         }
     }
     for (int i = 0; i < 3; i++) {
         ret = pthread_join(consumer_tid[i], NULL);
         if(ret != 0 ){
             fprintf(stderr,"consumer pthread_join error %s",strerror(ret));
+            exit(1);
+
         }
     }
     for (int i = 0; i < 5; i++) {
