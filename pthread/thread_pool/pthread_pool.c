@@ -47,7 +47,7 @@ void* worker(void* arg) {
         pool->queueFront %= pool->queueCapacity;
         void (*func)(void*) = pool->taskQueue[pool->queueFront].func;
         void* arg = pool->taskQueue[pool->queueFront].arg;
-        pool->queueSize--;
+        pool->queueSize--; 
         pthread_mutex_unlock(&pool->mutexPool);
 
         pthread_mutex_lock(&pool->mutexBusy);
