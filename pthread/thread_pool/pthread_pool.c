@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
+#define NUM 5
 typedef struct Task {
     void (*func)(void* arg);
     void* arg;
@@ -38,9 +38,21 @@ void* worker(void* arg) {
     threadPool* pool = (threadPool*)arg;
     while (1) {
         pthread_mutex_lock(&pool->mutexPool);
-        while (pool->queueSize == 0 &&
-               !pool->shutdown) {  // 任务队列为空且线程池不关闭
+        // 任务队列为空且线程池不关闭
+        while (pool->queueSize == 0 && !pool->shutdown) {
+            // 阻塞线程
             pthread_cond_wait(&pool->empty, &pool->mutexPool);
+            // 判断是否销毁线程(exitNum>0)
+            if (pool->exitNum > 0) {
+                pool->liveNum--;
+                pool->exitNum--;
+                pthread_mutex_unlock(&pool->mutexPool);
+                threadExit(&pool);
+            }
+        }
+        // 判断线程池是否关闭
+        if (pool->shutdown) {
+            threadExit(&pool);
         }
         // 取出任务
         pool->queueFront++;
@@ -54,18 +66,59 @@ void* worker(void* arg) {
         pool->busyNum++;
         pthread_mutex_unlock(&pool->mutexBusy);
 
+        // 执行任务
         printf("thread %ld start working...\n", pthread_self());
         func(arg);
         free(arg);
         printf("thread %ld end working...\n", pthread_self());
-
+        // 忙线数量减一
         pthread_mutex_lock(&pool->mutexBusy);
         pool->busyNum--;
         pthread_mutex_unlock(&pool->mutexBusy);
     }
 }
 // 管理者线程函数
-void* manager(void* arg) {}
+void* manager(void* arg) {
+    threadPool* pool = (threadPool*)arg;
+    while (!pool->shutdown) {
+        // 每隔三秒检查一次
+        sleep(3);
+
+        // ??取出线程池中的线程数量,忙线数量,任务数量
+        pthread_mutex_lock(&pool->mutexPool);
+
+        // 根据数量来进行添加线程
+        // 忙线数量小于存活数量的两倍,存活数量小于等于最大线程数
+        // 存活线程小于任务数量+NUM
+        if (pool->busyNum * 2 < pool->liveNum &&
+            pool->liveNum < pool->queueSize + NUM) {
+            // 每次添加两个线程
+            int count = 0;
+            for (int i = 0; i < pool->maxNum && count < NUM &&
+                            pool->liveNum < pool->maxNum;
+                 i++) {
+                if (pool->threadIDs[i] == 0) {  //  找到空线程
+                    count++;
+                    pool->liveNum++;
+                    pthread_create(&pool->threadIDs[i], NULL, worker, pool);
+                }
+            }
+        }
+        pthread_mutex_unlock(&pool->mutexPool);
+
+        pthread_mutex_lock(&pool->mutexPool);
+        // 销毁线程
+        if (pool->liveNum > pool->queueSize) {
+            // 让工作的线程自杀
+            pool->exitNum = 2;  // 每次退出两个
+            // 唤醒线程
+            for (int i = 0; i < pool->exitNum; i++) {
+                pthread_cond_signal(&pool->empty);
+            }
+        }
+        pthread_mutex_unlock(&pool->mutexPool);
+    }
+}
 /* 创建线程池并初始化 */
 threadPool* threadPoolCreate(int min, int max, int queueSize) {
     threadPool* pool = (threadPool*)malloc(sizeof(threadPool));
@@ -136,4 +189,14 @@ int threadPoolBusyNum(threadPool* pool) {}
 // 获取线程池中活着的线程个数
 int threadPoolAliveNum(threadPool* pool) {}
 // 线程退出
-int threadExit(threadPool* pool) {}
+int threadExit(threadPool* pool) {
+    pthread_t tid = pthread_self();
+    for (int i = 0; i < pool->maxNum; i++) {
+        if (tid == pool->threadIDs[i]) {
+            pool->threadIDs[i] = 0;
+            printf("thread is exiting");
+            break;
+        }
+    }
+    pthread_exit(NULL);
+}
